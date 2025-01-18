@@ -1,6 +1,4 @@
-// 1 - Import de puppeteer
 const puppeteer = require('puppeteer');
-// const { exec } = require("child_process");
 const fs = require('fs');
 const CryptoJS = require("crypto-js");
 
@@ -52,8 +50,8 @@ const getFilePath = (url, ext) => {
         filePath = 'accueil';
     }
     
-    dirPath = filePath.split('/');
-    fileName = dirPath.pop()+'.'+ext;
+    var dirPath = filePath.split('/');
+    var fileName = dirPath.pop()+'.'+ext;
     
     let thePath = 'pdfs/'+formatDate(new Date())+'/'+dirPath.join('/');
     thePath = thePath.replace('//', '/');
@@ -98,20 +96,20 @@ const checkSumChanged = async(page, fileDesc) => {
         fs.readFile(filePath, fileEncoding, (err, data) => {
             if (err) {
                 isChanged = true;
-                
+
                 fs.writeFile(filePath, h_sha3_1, (err) => {
                     if (err) throw err;
                 });
             } else {
-                isChanged = data != h_sha3_1;
-                
+                isChanged = data !== h_sha3_1;
+
                 if(isChanged) {
                     fs.writeFile(filePath, h_sha3_1, (err) => {
                         if (err) throw err;
                     });
                 }
             }
-            
+
             resolve(isChanged);
         });
     });
@@ -120,13 +118,13 @@ const checkSumChanged = async(page, fileDesc) => {
 const toPDF = async (url) => {
     var filePath = trim(url, '/').replace(new RegExp('^'+baseURL), '');
     
-    if(filePath == '') {
+    if(filePath === '') {
         filePath = 'accueil';
     }
     
-    dirPath = filePath.split('/');
-    fileName = dirPath.pop();
-    fileNamePdf = fileName+'.pdf'; //+'-'+formatDate(new Date())
+    var dirPath = filePath.split('/');
+    var fileName = dirPath.pop();
+    var fileNamePdf = fileName+'.pdf'; //+'-'+formatDate(new Date())
     
     let thePath = 'pdfs/'+formatDate(new Date())+'/'+dirPath.join('/');
     thePath = thePath.replace('//', '/');
@@ -136,17 +134,32 @@ const toPDF = async (url) => {
     });
     
     // 
-    const browser = await puppeteer.launch();
+    const browser = await puppeteer.launch({headless: true});
     const page = await browser.newPage();
-    // await page.goto(url, {waitUntil: 'networkidle2'});
+
     await page.goto(url, {waitUntil: 'networkidle2', timeout: 13000});
 
     await page.emulateMediaType('screen');
     await page.setViewport({ width: Math.ceil(210/25.4*96), height: Math.ceil(297/25.4*96) });
+
+    await page.evaluate(() => {
+        var nodes = [];
+        // Modifier le titre
+        nodes.push(document.getElementById('wp-consent-api-js'));
+        nodes.push(document.getElementById('cmplz-cookiebanner-container'));
+        nodes.push(document.getElementById('cmplz-blocked-content-notice'));
+        nodes = nodes.concat([].slice.call(document.getElementsByTagName('noscript')));
+        nodes = nodes.concat([].slice.call(document.getElementsByTagName('iframe')));
+
+        nodes.forEach(node => node?node.parentNode.removeChild(node): undefined);
+    });
+
     var html = await page.evaluate(() => document.documentElement.outerHTML);
-    //Virer le lazy loading des images
+    // Retirer le lazy loading des images
     await page.setContent(html.replace(/loading="lazy"/g, 'loading="eager"').replace('class="warp"', ''));
-    await page.waitForTimeout(30000);
+
+
+    //await page.waitForwaitForTimeout(30000);
     await page.pdf({path: thePath+'/'+fileNamePdf, format: 'A4', displayHeaderFooter: true, headerTemplate: 'date - title', footerTemplate:'url    pageNumber/totalPages', printBackground: true, preferCSSPageSize: true, scale: 0.75, width: '210mm', 'height': '297mm'});
   
     await browser.close();
@@ -186,7 +199,7 @@ const getNextPage = async () => {
     console.log(url);
     
     pageNum++;
-    if(url != undefined) {
+    if(url !== undefined) {
         if(visited.indexOf(url) < 0) {
             visited.push(url);
             
@@ -212,7 +225,7 @@ const getNextPage = async () => {
                 reject(err)
             });
         } else {
-            getNextPage();
+            await getNextPage();
         }
     }
 }
